@@ -14,8 +14,6 @@
 - Oracle Wait Events
 - SQL Profiles & Hints
 
----
-
 ## 📁 Folder Structure
 
 
@@ -28,14 +26,12 @@
 │   └── execution_plan_sample.png
 ├── README.md
 
-## 📁 Folder Structure
-...
 
 ## 🛠 Tools Used
-Oracle Database 19c
-SQL Developer / TOAD
-AWR, ASH, ADDM
-Oracle SQL*Plus
+- Oracle Database 19c
+- SQL Developer / TOAD
+- AWR, ASH, ADDM
+- Oracle SQL*Plus
 
 
 
