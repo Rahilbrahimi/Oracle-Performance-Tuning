@@ -1,2 +1,10 @@
 # Oracle-Perfomance-Tuning
-Scripts and notes for Oracle SQL performance tuning and partitioning
+Scripts ,documentation,and best practices for optimizing Oracle SQL performance and partitioning.
+Topics Covered:
+-SQL Tuning Techniques
+-Indexing Strategies
+-Table Partitioning
+-AWR & ASH Report Analysis
+-SQL Plan Management
+-Oracle Wait Events
+-SQL Profiles & Hints
