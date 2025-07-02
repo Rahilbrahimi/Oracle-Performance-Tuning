@@ -1,4 +1,4 @@
-# Oracle-Perfomance-Tuning
+# Oracle-Performance-Tuning
 Scripts ,documentation,and best practices for optimizing Oracle SQL performance and partitioning.
 Topics Covered:
 -SQL Tuning Techniques
