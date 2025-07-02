@@ -18,8 +18,7 @@
 
 ## 📁 Folder Structure
 
-```bash
-.
+
 ├── sql-scripts/
 │   ├── tuning_examples.sql
 │   └── partitioning_scenarios.sql
@@ -33,8 +32,13 @@
 ...
 
 ## 🛠 Tools Used
-...
+Oracle Database 19c
+SQL Developer / TOAD
+AWR, ASH, ADDM
+Oracle SQL*Plus
+
+
 
 ## 👤 About Me
-...
+I'm Raheleh Ebrahimi, a database enthusiast with experience in schema management, performance tuning, indexing, and partitioning in Oracle.
 
