@@ -1,0 +1,164 @@
+create or replace PROCEDURE get_transactions (
+    p_account_no     IN  VARCHAR2,
+    p_from_timestamp IN  VARCHAR2,
+    p_to_timestamp   IN  VARCHAR2,
+    p_page_number    IN  NUMBER DEFAULT 0,
+    p_page_size      IN  NUMBER DEFAULT 100,
+    i_result         OUT CLOB
+) AS ---local variable ha:
+    l_account_no     VARCHAR2(50);
+    l_from_str       VARCHAR2(50);
+    l_to_str         VARCHAR2(50);
+    l_from_timestamp TIMESTAMP;
+    l_to_timestamp   TIMESTAMP;
+    l_response       CLOB;
+    l_total_count    PLS_INTEGER;
+    l_size           PLS_INTEGER;
+    l_page           PLS_INTEGER;
+    l_offset         PLS_INTEGER;
+    l_hasmore        VARCHAR2(5);
+    l_self_link      VARCHAR2(4000);
+    l_next_link      VARCHAR2(4000);
+    l_prev_link      VARCHAR2(4000);
+    l_next_page      PLS_INTEGER;
+    l_prev_page      PLS_INTEGER;
+BEGIN
+   
+
+    -- validate pagination
+   IF p_page_number < 0 THEN
+    RAISE_APPLICATION_ERROR(-20010, 'شماره صفحه نمی تواند منفی باشد');
+   END IF;
+   IF p_page_size <= 0 OR l_size > 500 THEN
+    RAISE_APPLICATION_ERROR(-20011, 'سایز صفحه باید بین 1 تا 500 باشد.');
+   END IF;
+
+    -- validate account number
+    l_account_no := TRIM(p_account_no);
+    IF NOT REGEXP_LIKE(l_account_no, '^[A-Za-z0-9]+$') THEN
+        RAISE_APPLICATION_ERROR(-20001, 'شماره حساب باید فقط شامل حروف و اعداد باشد.');
+    END IF;
+
+    -- validate dates
+    l_from_str := TRIM(REPLACE(REPLACE(p_from_timestamp, '''', ''), '"', ''));
+    l_to_str   := TRIM(REPLACE(REPLACE(p_to_timestamp,   '''', ''), '"', ''));
+
+    IF l_from_str IS NULL OR l_from_str = '' THEN
+        RAISE_APPLICATION_ERROR(-20003, 'تاریخ شروع الزامی است.');
+    END IF;
+
+    l_from_timestamp := TO_TIMESTAMP(l_from_str, 'YYYY-MM-DD HH24:MI:SS');
+
+    IF l_to_str IS NULL OR l_to_str = '' THEN
+        l_to_timestamp := l_from_timestamp + INTERVAL '5' MINUTE;
+    ELSE
+        l_to_timestamp := TO_TIMESTAMP(l_to_str, 'YYYY-MM-DD HH24:MI:SS');
+    END IF;
+
+    IF (l_to_timestamp - l_from_timestamp) > INTERVAL '1' DAY THEN
+        RAISE_APPLICATION_ERROR(-20002, 'اختلاف زمانی بین تاریخ شروع و پایان نباید بیشتر از 24 ساعت باشد.');
+    END IF;
+
+    -- pagination offset
+    --توضیح برای خودم:مثلا اگه صفحه 0 باشه یعنی از اولین رکرود شروع میکنیم
+    ---اگر صفحه 1 باشه و مثلا سایز 100 باشه یعنی از رکورد 101 شروع میکنیم.
+    l_offset := l_page * l_size;
+
+    -- total count
+    ---تعداد کل رکورد هارا میگیریم.
+    ---چرا تعداد کل رکورد هارا میگیریم؟برای این که ببینیم چند صفحه داریم و ایا صفحه بعدی وجود داره یا نه.
+    SELECT COUNT(*)
+    INTO l_total_count
+    FROM bank_transactions
+    WHERE account_number = l_account_no
+      AND transaction_date BETWEEN l_from_timestamp AND l_to_timestamp;
+
+    -- has_more
+    --برای این که ببینیم صفحه بعدی اصلا وجود داره یا نه.
+    --منطقش اینجوریه که 
+    ---اگه مجموع کل رکورد هایی که دیدیدم تا الان که میشه جمه افست و سایز کمتر از تعداد کل رکورد ها باشه صفحه بعدی داریم.
+    IF (l_offset + l_size) < l_total_count THEN
+        l_hasmore := 'true';
+    ELSE
+        l_hasmore := 'false';
+    END IF;
+
+    -- افست:تعداد ردیف هایی که میخواهیم رد کنیم.
+    --FETCH NEXT l_size ROWS ONLY:تعداد ردیف هایی که میخواهیم دریافت کنیم.
+    --صفحه بندی از طریق حساب کردن افست و تعداد ردیف ها انجام میشه.
+    --json_object:یک دیکشنری هست که کلید و مقدار داره
+    --JSON_ARRAYAGG(expr)
+--yek araye json (list az object ya maghadir misaze)ke anasoresh az natayej chand satr query gerefte mishe.
+--ساختار کوئری ما:
+--ابتدا کوئری داخلی چند سطر از تراکنش هارا برمیگردونه.
+--json_object:برای هر سطر یک شی جیسون میسازد.(هر تراکنش)
+---json_arrayagg:همه این اشیا را داخل یک ارایه میریزه.
+--json_object شبیه دیکشنری تو پایتون یا ابکت توی جاواس
+    SELECT NVL(
+               JSON_ARRAYAGG(
+                   JSON_OBJECT(
+                       'transaction_id'   VALUE transaction_id,
+                       'account_number'   VALUE account_number,
+                       'amount'           VALUE amount,
+                       'transaction_date' VALUE TO_CHAR(transaction_date, 'YYYY-MM-DD"T"HH24:MI:SS')
+                   )
+               ), '[]')
+    INTO l_response
+    FROM (
+        SELECT *
+        FROM bank_transactions
+        WHERE account_number = l_account_no
+          AND transaction_date BETWEEN l_from_timestamp AND l_to_timestamp
+        ORDER BY transaction_date ASC
+        OFFSET l_offset ROWS FETCH NEXT l_size ROWS ONLY
+    );
+
+    -- links
+    l_self_link := '/transactions?account=' || l_account_no ||
+                   CHR(38) || 'page=' || l_page ||
+                   CHR(38) || 'size=' || l_size ||
+                   CHR(38) || 'from=' || l_from_str ||
+                   CHR(38) || 'to=' || l_to_str;
+
+    IF l_hasmore = 'true' THEN
+        l_next_page := l_page + 1;
+        l_next_link := '/transactions?account=' || l_account_no ||
+                       CHR(38) || 'page=' || l_next_page ||
+                       CHR(38) || 'size=' || l_size ||
+                       CHR(38) || 'from=' || l_from_str ||
+                       CHR(38) || 'to=' || l_to_str;
+    ELSE
+        l_next_link := NULL;
+    END IF;
+
+    IF l_page > 0 THEN
+        l_prev_page := l_page - 1;
+        l_prev_link := '/transactions?account=' || l_account_no ||
+                       CHR(38) || 'page=' || l_prev_page ||
+                       CHR(38) || 'size=' || l_size ||
+                       CHR(38) || 'from=' || l_from_str ||
+                       CHR(38) || 'to=' || l_to_str;
+    ELSE
+        l_prev_link := NULL;
+    END IF;
+
+    -- final JSON
+    i_result := TO_CLOB(
+        JSON_OBJECT(
+            'data'        VALUE l_response FORMAT JSON,
+            'total_count' VALUE l_total_count,
+            'page'        VALUE l_page,
+            'page_size'   VALUE l_size,
+            'has_more'    VALUE l_hasmore,
+            'links'       VALUE JSON_OBJECT(
+                              'self' VALUE l_self_link,
+                              'next' VALUE CASE WHEN l_next_link IS NULL THEN NULL ELSE l_next_link END,
+                              'prev' VALUE CASE WHEN l_prev_link IS NULL THEN NULL ELSE l_prev_link END
+                           )
+        )
+    );
+
+EXCEPTION
+    WHEN OTHERS THEN
+        i_result := '{"status":"error","message":"' || REPLACE(SQLERRM, '"', '''') || '"}';
+END get_transactions;
