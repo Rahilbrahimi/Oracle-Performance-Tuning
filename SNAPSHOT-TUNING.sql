@@ -217,4 +217,57 @@ WHERE
     ts.num_rows IS NOT NULL
 ORDER BY
     n.samples DESC;
+	
+	
+-----elapsed_Time:
+SELECT 
+    ss.sql_id,
+    sn.begin_interval_time,
+    sn.end_interval_time,
+    ss.executions_delta,
+    ROUND(ss.elapsed_time_delta / NULLIF(ss.executions_delta, 0) / 1e6, 4) AS sec_per_exec
+FROM 
+    dba_hist_sqlstat ss
+    JOIN dba_hist_snapshot sn 
+        ON ss.snap_id = sn.snap_id 
+        AND ss.instance_number = sn.instance_number
+WHERE 
+    ss.sql_id = 'bhbbpwdqppdcm'
+    AND sn.begin_interval_time 
+       BETWEEN  '04-AUG-25 10:20:10.856 AM'
+                                AND '05-AUG-25 10:20:10.856 AM'
+ORDER BY 
+    sec_per_exec DESC;
+	
+	------------------
+	
+SELECT DISTINCT sql_id
+FROM (
+  SELECT
+    sql_id,
+    (
+      EXTRACT(SECOND FROM (MAX(sample_time) - MIN(sample_time))) +
+      EXTRACT(MINUTE FROM (MAX(sample_time) - MIN(sample_time))) * 60 +
+      EXTRACT(HOUR   FROM (MAX(sample_time) - MIN(sample_time))) * 3600 +
+      EXTRACT(DAY    FROM (MAX(sample_time) - MIN(sample_time))) * 86400
+    ) AS exec_duration_sec
+  FROM
+    dba_hist_active_sess_history
+  WHERE
+    sql_id IS NOT NULL
+    AND sql_exec_id IS NOT NULL
+    AND sample_time >= SYSDATE - 1 
+    AND USER_ID NOT IN (0)
+  GROUP BY
+    sql_id, session_id, session_serial#, sql_exec_id, USER_ID
+  HAVING
+    (
+      EXTRACT(SECOND FROM (MAX(sample_time) - MIN(sample_time))) +
+      EXTRACT(MINUTE FROM (MAX(sample_time) - MIN(sample_time))) * 60 +
+      EXTRACT(HOUR   FROM (MAX(sample_time) - MIN(sample_time))) * 3600 +
+      EXTRACT(DAY    FROM (MAX(sample_time) - MIN(sample_time))) * 86400
+    ) > 60
+);
+
+-------
 
