@@ -179,22 +179,3 @@ EXCEPTION
     WHEN OTHERS THEN
         i_result := '{"status":"error","message":"' || REPLACE(SQLERRM, '"', '''') || '"}';
 END get_transaction_3;
-
-
-----baraye test darim:
-
-DECLARE
-    v_result CLOB;
-BEGIN
-    get_transaction_2(
-        p_account_no     => '1234567890',
-        p_from_timestamp => '2025-08-09 07:00:00',
-        p_to_timestamp   => '2025-08-09 09:00:00',
-        p_page_number    => 1,
-        p_page_size      => 10,
-        i_result         => v_result
-    );
-
-    DBMS_OUTPUT.PUT_LINE(v_result);
-END;
-/
