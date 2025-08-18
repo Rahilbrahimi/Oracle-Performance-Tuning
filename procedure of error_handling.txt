@@ -1,0 +1,161 @@
+---baraye error handeling aval yek jadval log misazim:
+
+CREATE TABLE error_log (
+    error_id        NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    error_timestamp TIMESTAMP DEFAULT SYSTIMESTAMP,
+    error_code      NUMBER,
+    error_message   VARCHAR2(4000),
+    error_stack     CLOB,
+    proc_name       VARCHAR2(200)
+);
+
+
+---baraye chi jadval sakhtim?
+--1.khatara log kone .
+--2.payam monaseb ro be client bargardoone.
+--3.code khata va payam ra bar asas khatahaye system bargardoone.
+
+--sepec package error:
+CREATE OR REPLACE PACKAGE pkg_error_handler AS
+
+    --  پروسیجر ثبت خطا در جدول
+    PROCEDURE log_error (
+        p_proc_name      IN VARCHAR2,
+        p_error_code     IN NUMBER,
+        p_error_message  IN VARCHAR2,
+        p_error_stack    IN CLOB
+    );
+
+    --  تابع handle_error برای گرفتن خطا و خروجی JSON
+    FUNCTION handle_error (
+        p_proc_name      IN VARCHAR2,
+        p_error_code     IN NUMBER DEFAULT NULL,
+        p_error_message  IN VARCHAR2 DEFAULT NULL,
+        p_error_stack    IN CLOB DEFAULT NULL
+    ) RETURN CLOB;
+
+END pkg_error_handler;
+/
+
+
+---pas package ma dota procedure dare.yeki baraye log_error,yeki abraye handle_error hast.
+
+CREATE OR REPLACE PACKAGE BODY pkg_error_handler AS
+
+    -----------------------------------------------------------------------------------
+    -- ۱پروسیجر log_error
+    -----------------------------------------------------------------------------------
+    PROCEDURE log_error (
+        p_proc_name      IN VARCHAR2,
+        p_error_code     IN NUMBER,
+        p_error_message  IN VARCHAR2,
+        p_error_stack    IN CLOB
+    ) IS
+    BEGIN
+        INSERT INTO error_log (
+            error_timestamp,
+            error_code,
+            error_message,
+            error_stack,
+            proc_name
+        )
+        VALUES (
+            SYSTIMESTAMP,
+            p_error_code,
+            p_error_message,
+            p_error_stack,
+            p_proc_name
+        );
+        COMMIT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            DBMS_OUTPUT.PUT_LINE('Error logging failed: ' || SQLERRM);
+    END log_error;
+
+    -----------------------------------------------------------------------------------
+    --  تابع handle_error
+    -----------------------------------------------------------------------------------
+    FUNCTION handle_error (
+        p_proc_name      IN VARCHAR2,
+        p_error_code     IN NUMBER DEFAULT NULL,
+        p_error_message  IN VARCHAR2 DEFAULT NULL,
+        p_error_stack    IN CLOB DEFAULT NULL
+    ) RETURN CLOB IS
+       
+        l_code   NUMBER := NVL(p_error_code, -20001);  
+        l_msg    VARCHAR2(4000) := NVL(p_error_message, 'خطای ناشناخته رخ داده است');
+        l_stack  CLOB := NVL(p_error_stack, DBMS_UTILITY.format_error_backtrace);
+        l_json   CLOB;
+    BEGIN
+        -- ثبت خطا در جدول
+        log_error(
+            p_proc_name     => p_proc_name,
+            p_error_code    => l_code,
+            p_error_message => l_msg,
+            p_error_stack   => l_stack
+        );
+
+        -- ساخت JSON خروجی برای API
+        l_json := '{' ||
+                  '"timestamp":"' || TO_CHAR(SYSTIMESTAMP,'YYYY-MM-DD"T"HH24:MI:SS.FF3"Z"') || '",' ||
+                  '"error_code":' || l_code || ',' ||
+                  '"message":"' || REPLACE(l_msg, '"', '\"') || '",' ||
+                  '"proc_name":"' || p_proc_name || '",' ||
+                  '"stack_trace":"' || REPLACE(l_stack, '"', '\"') || '"' ||
+                  '}';
+
+        RETURN l_json;
+    END handle_error;
+
+END pkg_error_handler;
+
+
+
+
+------
+--baraye test on darim:
+CREATE OR REPLACE PROCEDURE test_error_demo AS
+    l_result CLOB;
+BEGIN
+   
+    DECLARE
+        l_num NUMBER := 10;
+        l_div NUMBER := 0;
+        l_res NUMBER;
+    BEGIN
+        l_res := l_num / l_div;
+    END;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- استفاده از handle_error برای ثبت و خروجی JSON
+        l_result := pkg_error_handler.handle_error(
+                        p_proc_name => 'test_error_demo'
+                    );
+        DBMS_OUTPUT.PUT_LINE(l_result);
+END test_error_demo;
+/
+
+set serveroutput on;
+DECLARE
+    l_result CLOB;
+BEGIN
+    -- پرتاب یک خطای دلخواه
+    l_result := pkg_error_handler.handle_error(
+                    p_proc_name     => 'custom_proc',
+                    p_error_code    => -20050,
+                    p_error_message => 'این یک خطای تستی است'
+                );
+
+    DBMS_OUTPUT.PUT_LINE(l_result);
+END;
+/
+
+-----tarif package :DBMS_UTILITY.format_error_backtrace;in package neshoon mide age khate rokh bede khatara be soorat string barmighardoone.be ebrata dg in package neshhon mide ghabl az khata kodom procedure ha va kodom khataha ejra shodan.
+
+---HTTP:HyperText Transfer Protocol ;YEK protocol ertebati beyne client va server asat.
+---vaghti api az tarigh net ya shabke dar dastres asat mamoolan request ha va response ha az tarigh http ersal mishe.
+--http shmael status code ha hast.mesle 400,200 va 404 va ...
+---vaghti az gatway estefade mikonim on khodesh darkhast hara modiriyat mikone va niyazi be tolid http status code nadarim.
+
+
