@@ -29,7 +29,6 @@ create or replace PACKAGE BODY ERROR_PKG AS
         FROM API_ERROR_HTTP
         WHERE CODE = p_err_code;
 
-        -- گرفتن یک requestId از جدول REQUEST_ID_POOL
         SELECT ID 
         INTO l_request_id
         FROM REQUEST_ID_SEQ
