@@ -1,4 +1,8 @@
 ---Snapshot query:
+begin
+dbms_workload_repository.create_snapshot();
+end;
+/
 --Top wait in Snapshot:
 ---ba filter rooye snap_id beyne do snapshot moghayese shode.
 --BARAYE PEYDA KARDAN SHOMARE SNAP_ID KE DAR QUERY HA BA START_SNAP VA END_SNAP BE KAR RAFTE BAR ASAS TIME KE MIKHAID AZ QUERY ZIR ESTEFADE MIKONIM:
@@ -109,62 +113,7 @@ ORDER BY
     total_io_mb DESC;
 
 ---------------------------table access full:
-WITH full_scans AS (
-    SELECT DISTINCT
-        ash.sql_id,
-        du.username,
-        MIN(ash.sample_time) AS first_sample,
-        MAX(ash.sample_time) AS last_sample,
-        COUNT(*) AS samples,
-        ROUND(COUNT(*) * 1, 2) AS ash_seconds -- فرض هر sample یک ثانیه است
-    FROM
-        dba_hist_active_sess_history ash
-        JOIN dba_users du
-            ON ash.user_id = du.user_id
-    WHERE
-        ash.snap_id BETWEEN :start_snap AND :end_snap
-        AND du.username NOT IN ('SYS','SYSTEM','DBSNMP','OUTLN','RAHELEH_E')
-        AND ash.session_type = 'FOREGROUND'
-        AND EXISTS (
-            SELECT 1
-            FROM dba_hist_sql_plan p
-            WHERE p.sql_id = ash.sql_id
-              AND p.operation = 'TABLE ACCESS'
-              AND p.options = 'FULL'
-              AND p.object_owner IS NOT NULL
-        )
-    GROUP BY
-        ash.sql_id, du.username
-),
-table_stats AS (
-    SELECT owner, table_name, num_rows, blocks
-    FROM dba_tables
-)
-SELECT
-    f.sql_id,
-    sp.object_owner,
-    sp.object_name,
-    f.username,
-    f.first_sample,
-    f.last_sample,
-    f.samples,
-    f.ash_seconds,
-    ts.num_rows,
-    ROUND((ts.blocks * 8) / 1024, 1) AS table_size_mb
-FROM
-    full_scans f
-    JOIN dba_hist_sql_plan sp
-        ON f.sql_id = sp.sql_id
-       AND sp.operation = 'TABLE ACCESS'
-       AND sp.options = 'FULL'
-       AND sp.object_owner IS NOT NULL
-    LEFT JOIN table_stats ts
-        ON sp.object_owner = ts.owner
-       AND sp.object_name = ts.table_name
-WHERE
-    ts.num_rows > 100000
-ORDER BY
-    f.samples DESC;
+
 ---------------------------------------------
 -----query hae ke dar anha nested loop vojod dare:
 WITH nested_loop_sqls AS (

@@ -4,12 +4,39 @@ create or replace NONEDITIONABLE PACKAGE ERROR_PKG AS
 
     PROCEDURE RAISE_ERROR_V2(
         p_err_code IN VARCHAR2,
-        p_uri      IN VARCHAR2 DEFAULT NULL
+      
     );
+	
+	
+	---generate kardan uuid v4 
+	---handeling raise error 
+	--dar nahayat baraye didan khoroji chap kardan dbms_output
+	---
 
 
-END ERROR_PKG;
-
+	-- Handles errors by building and outputting a JSON error response
+	PROCEDURE handle (
+		p_err_code         IN t_err_code DEFAULT NULL,
+		p_err_name         IN t_err_name DEFAULT NULL,
+		p_http_status_code OUT NOCOPY pkg_http.t_http_status_code
+	) IS
+		l_err_code t_err_code := NVL(p_err_code, SQLCODE);
+		l_err_name t_err_name := NVL(p_err_name, SQLERRM);
+		l_err_record t_err_record;
+		
+		
+	procedure handle_errorr (
+	
+	p_err_code in t_err_Cdoe default null,
+	p_err_name in t_err_name defualt null,
+	p_http_status_code out pkg.t_hhtp_status_Code 
+	
+	)
+	is 
+	i_error_Code in t_err_Code defualt null,
+	p_err_name in t_err_name default null,
+	p_http_status
+	
 create or replace PACKAGE BODY ERROR_PKG AS
 
     PROCEDURE RAISE_ERROR_V2(
@@ -35,15 +62,7 @@ create or replace PACKAGE BODY ERROR_PKG AS
         FROM REQUEST_ID_SEQ
         WHERE ROWNUM = 1;
 
-        -- تعیین مسیر URI
-        IF p_uri IS NOT NULL THEN
-            l_http_uri_path := p_uri;
-        ELSE
-            l_http_uri_path := SUBSTR(OWA_UTIL.GET_CGI_ENV('/api/v1/users/12345'), 1, 4000);
-            IF l_http_uri_path IS NULL THEN
-                l_http_uri_path := '/unknown/path';
-            END IF;
-        END IF;
+  
 
         -- ساخت JSON استاندارد
         l_err_json_obj := NEW JSON_OBJECT_T();
@@ -59,8 +78,7 @@ create or replace PACKAGE BODY ERROR_PKG AS
 
         l_err_json_obj.put('error', l_error_obj);
 
-        -- استفاده از requestId از جدول
-        l_err_json_obj.put('requestId', l_request_id);
+      
 
         -- تبدیل JSON به CLOB
         l_err_json_clob := l_err_json_obj.to_clob();
