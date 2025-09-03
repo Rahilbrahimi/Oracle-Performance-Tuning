@@ -138,6 +138,21 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           l_links_array.append(l_link_obj);
       END IF;
 
+      -- ✅ لینک آخرین صفحه
+      IF l_total_count > p_limit THEN
+          l_link_obj := NEW JSON_OBJECT_T();
+          l_link_obj.put('rel','last');
+          l_link_obj.put(
+              'href',
+              update_url_with_pagination(
+                  p_path,
+                  (TRUNC((l_total_count - 1) / p_limit) * p_limit),
+                  p_limit
+              )
+          );
+          l_links_array.append(l_link_obj);
+      END IF;
+
       -- ساخت JSON خروجی
       l_json_obj.put('status','success');
       l_json_obj.put('data', l_slice_array);
@@ -157,4 +172,5 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
+
 
