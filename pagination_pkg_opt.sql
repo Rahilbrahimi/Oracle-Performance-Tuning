@@ -41,7 +41,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
 
       -- offset بدون limit
       IF has_offset AND NOT has_limit THEN
-          l_url := REGEXP_REPLACE(l_url, '(offset=' || l_offset || ')', '\1&limit=' || l_limit);
+          l_url := REGEXP_REPLACE(l_url, '(offset=\d+)', '\1&limit=' || l_limit);
       END IF;
 
       -- limit بدون offset
@@ -76,10 +76,11 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       l_end_index      NUMBER;
       l_slice_array    JSON_ARRAY_T := NEW JSON_ARRAY_T();
       l_link_obj       JSON_OBJECT_T;
+      l_status_code    NUMBER;
   BEGIN
       -- شرط 1: CLOB نباید NULL باشد
       IF p_json_clob IS NULL THEN
-          RAISE_APPLICATION_ERROR(-20001, 'JSON CLOB input cannot be NULL.');
+          error_handling_pkg_3.raise_error('PAG_NULL_CLOB');
       END IF;
 
       -- تبدیل CLOB به JSON_ARRAY و بررسی صحت JSON
@@ -87,20 +88,20 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           l_data_array := JSON_ARRAY_T.parse(p_json_clob);
       EXCEPTION
           WHEN OTHERS THEN
-              RAISE_APPLICATION_ERROR(-20002, 'Invalid JSON format in input CLOB.');
+              error_handling_pkg_3.raise_error('PAG_INVALID_JSON');
       END;
 
       -- شرط 2: بررسی اینکه JSON از نوع Array باشد
       IF l_data_array IS NULL THEN
-          RAISE_APPLICATION_ERROR(-20003, 'JSON input must be an array.');
+          error_handling_pkg_3.raise_error('PAG_NOT_ARRAY');
       END IF;
 
       -- شرط 3: بررسی offset و limit
       IF p_offset < 0 THEN
-          RAISE_APPLICATION_ERROR(-20004, 'Offset must be >= 0.');
+          error_handling_pkg_3.raise_error('PAG_INVALID_OFFSET');
       END IF;
       IF p_limit < 1 THEN
-          RAISE_APPLICATION_ERROR(-20005, 'Limit must be >= 1.');
+          error_handling_pkg_3.raise_error('PAG_INVALID_LIMIT');
       END IF;
 
       l_total_count := l_data_array.get_size;
@@ -165,12 +166,12 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       l_json_obj.put('pagination', l_pagination_obj);
 
       RETURN l_json_obj.to_clob();
-
   EXCEPTION
       WHEN OTHERS THEN
-          RETURN NULL;
+          error_handling_pkg_3.handle_error(NULL, p_path, l_status_code);
+          RETURN error_handling_pkg_3.generate_error_json(NULL, p_path);
   END get_paginated_data_from_clob;
-
 END pagination_pkg_opt;
+
 
 
