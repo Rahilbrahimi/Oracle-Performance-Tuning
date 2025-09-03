@@ -41,7 +41,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
 
       -- offset بدون limit
       IF has_offset AND NOT has_limit THEN
-          l_url := REGEXP_REPLACE(l_url, '(offset=\d+)', '\1&limit=' || l_limit);
+          l_url := REGEXP_REPLACE(l_url, '(offset=' || l_offset || ')', '\1&limit=' || l_limit);
       END IF;
 
       -- limit بدون offset
@@ -80,7 +80,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
   BEGIN
       -- شرط 1: CLOB نباید NULL باشد
       IF p_json_clob IS NULL THEN
-          error_handling_pkg_3.raise_error('PAG_NULL_CLOB');
+          error_handling_pkg_3.raise_error('INVALID_CLOB');
       END IF;
 
       -- تبدیل CLOB به JSON_ARRAY و بررسی صحت JSON
@@ -88,30 +88,23 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           l_data_array := JSON_ARRAY_T.parse(p_json_clob);
       EXCEPTION
           WHEN OTHERS THEN
-              error_handling_pkg_3.raise_error('PAG_INVALID_JSON');
+              error_handling_pkg_3.raise_error('INVALID_JSON');
       END;
 
-      -- شرط 2: بررسی اینکه JSON از نوع Array باشد
-      IF l_data_array IS NULL THEN
-          error_handling_pkg_3.raise_error('PAG_NOT_ARRAY');
-      END IF;
-
-      -- شرط 3: بررسی offset و limit
+      -- بررسی offset و limit
       IF p_offset < 0 THEN
-          error_handling_pkg_3.raise_error('PAG_INVALID_OFFSET');
+          error_handling_pkg_3.raise_error('INVALID_OFFSET');
       END IF;
       IF p_limit < 1 THEN
-          error_handling_pkg_3.raise_error('PAG_INVALID_LIMIT');
+          error_handling_pkg_3.raise_error('INVALID_LIMIT');
       END IF;
 
       l_total_count := l_data_array.get_size;
-
-      -- تعیین محدوده slice
       l_end_index := LEAST(p_offset + p_limit, l_total_count);
 
       -- Slice کردن داده‌ها
       FOR i IN p_offset + 1 .. l_end_index LOOP
-          l_slice_array.append(l_data_array.get(i - 1)); -- JSON_ARRAY_T از 0 ایندکس می‌شود
+          l_slice_array.append(l_data_array.get(i - 1));
       END LOOP;
 
       -- ساخت لینک‌ها
@@ -139,7 +132,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           l_links_array.append(l_link_obj);
       END IF;
 
-      -- ✅ لینک آخرین صفحه
+      -- لینک آخرین صفحه
       IF l_total_count > p_limit THEN
           l_link_obj := NEW JSON_OBJECT_T();
           l_link_obj.put('rel','last');
@@ -166,12 +159,11 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       l_json_obj.put('pagination', l_pagination_obj);
 
       RETURN l_json_obj.to_clob();
+
   EXCEPTION
       WHEN OTHERS THEN
-          error_handling_pkg_3.handle_error(NULL, p_path, l_status_code);
-          RETURN error_handling_pkg_3.generate_error_json(NULL, p_path);
+          error_handling_pkg_3.handle_error(SQLERRM, p_path, l_status_code);
+          RETURN error_handling_pkg_3.generate_error_json(SQLERRM, p_path);
   END get_paginated_data_from_clob;
+
 END pagination_pkg_opt;
-
-
-
