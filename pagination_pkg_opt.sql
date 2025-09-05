@@ -1,4 +1,4 @@
-CREATE OR REPLACE PACKAGE pagination_pkg_opt AS
+create or replace PACKAGE pagination_pkg_opt AS
 
   FUNCTION update_url_with_pagination(
       p_url    IN VARCHAR2,
@@ -13,7 +13,7 @@ CREATE OR REPLACE PACKAGE pagination_pkg_opt AS
   ) RETURN CLOB;
 END pagination_pkg_opt;
 
-CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
+create or replace PACKAGE BODY pagination_pkg_opt AS
 
   -- تابع update_url_with_pagination
   FUNCTION update_url_with_pagination(
@@ -27,24 +27,31 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       has_offset  BOOLEAN := FALSE;
       has_limit   BOOLEAN := FALSE;
   BEGIN
+      -- Checking for existence of offset
       IF REGEXP_INSTR(l_url, '([?&]offset=)') > 0 THEN
           has_offset := TRUE;
           l_url := REGEXP_REPLACE(l_url, '([?&]offset=)([^&]*)', '\1' || l_offset);
       END IF;
 
+      -- Checking for existence of limit
       IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
           has_limit := TRUE;
           l_url := REGEXP_REPLACE(l_url, '([?&]limit=)([^&]*)', '\1' || l_limit);
       END IF;
 
+      -- There is an offset but no limit
       IF has_offset AND NOT has_limit THEN
           l_url := REGEXP_REPLACE(l_url, '(offset=' || l_offset || ')', '\1&limit=' || l_limit);
       END IF;
 
+      -- There is a limit but no offset
       IF has_limit AND NOT has_offset THEN
-          l_url := REGEXP_REPLACE(l_url, '([?&])limit=', '\1offset=' || l_offset || CHR(38) || 'limit=');
+          l_url := REGEXP_REPLACE(l_url,
+                                  '([?&])limit=',
+                                  '\1offset=' || l_offset || CHR(38) || 'limit=');
       END IF;
 
+      -- No limit, no offset
       IF NOT has_offset AND NOT has_limit THEN
           IF INSTR(l_url, '?') > 0 THEN
               l_url := l_url || CHR(38) || 'offset=' || l_offset || CHR(38) || 'limit=' || l_limit;
@@ -56,7 +63,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       RETURN l_url;
   END update_url_with_pagination;
 
-  -- تابع اصلی pagination روی CLOB JSON
+  -- تابع اصلی pagination
   FUNCTION get_paginated_data_from_clob(
       p_json_clob IN CLOB,
       p_offset    IN NUMBER DEFAULT 0,
@@ -64,7 +71,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       p_path      IN VARCHAR2 DEFAULT '/api/v1/data'
   ) RETURN CLOB IS
       l_json_obj       JSON_OBJECT_T := NEW JSON_OBJECT_T();
-      l_data_array     JSON_ARRAY_T := NEW JSON_ARRAY_T();
+      l_data_array     JSON_ARRAY_T;
       l_pagination_obj JSON_OBJECT_T := NEW JSON_OBJECT_T();
       l_links_array    JSON_ARRAY_T := NEW JSON_ARRAY_T();
       l_total_count    NUMBER;
@@ -73,12 +80,12 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
       l_link_obj       JSON_OBJECT_T;
       l_status_code    NUMBER;
   BEGIN
-      -- شرط 1: CLOB نباید NULL باشد
+      -- شرط 1: ورودی نباید NULL باشد
       IF p_json_clob IS NULL THEN
           error_handling_pkg_3.raise_error('PAGINATION_NULL');
       END IF;
 
-      -- تبدیل CLOB به JSON_ARRAY و بررسی صحت JSON
+      -- شرط 2: ورودی باید JSON معتبر از نوع Array باشد
       BEGIN
           l_data_array := JSON_ARRAY_T.parse(p_json_clob);
       EXCEPTION
@@ -86,7 +93,6 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
               error_handling_pkg_3.raise_error('PAGINATION_INVALID_JSON');
       END;
 
-      -- شرط 2: بررسی اینکه JSON از نوع Array باشد
       IF l_data_array IS NULL OR l_data_array.get_size = 0 THEN
           error_handling_pkg_3.raise_error('PAGINATION_NO_ARRAY');
       END IF;
@@ -96,15 +102,15 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           error_handling_pkg_3.raise_error('PAGINATION_LIMIT_ERR');
       END IF;
 
+      -- محاسبه total_count، slice کردن داده‌ها، تولید لینک‌ها، و ساخت JSON موفقیت
       l_total_count := l_data_array.get_size;
       l_end_index := LEAST(p_offset + p_limit, l_total_count);
 
-      -- Slice کردن داده‌ها
       FOR i IN p_offset + 1 .. l_end_index LOOP
           l_slice_array.append(l_data_array.get(i - 1));
       END LOOP;
 
-      -- ساخت لینک‌ها
+      -- لینک‌ها
       l_link_obj := NEW JSON_OBJECT_T();
       l_link_obj.put('rel','self');
       l_link_obj.put('href', update_url_with_pagination(p_path, p_offset, p_limit));
@@ -140,7 +146,7 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
           l_links_array.append(l_link_obj);
       END IF;
 
-      -- ساخت JSON خروجی
+      -- خروجی موفق
       l_json_obj.put('status','success');
       l_json_obj.put('data', l_slice_array);
       l_pagination_obj.put('limit', p_limit);
@@ -153,11 +159,26 @@ CREATE OR REPLACE PACKAGE BODY pagination_pkg_opt AS
 
       RETURN l_json_obj.to_clob();
 
-  EXCEPTION
-      WHEN OTHERS THEN
-          -- هندل کردن سایر خطاها با پکیج error_handling
-          error_handling_pkg_3.handle_error(NULL, p_path, l_status_code);
-          RETURN error_handling_pkg_3.generate_error_json(NULL, p_path);
+EXCEPTION
+    WHEN OTHERS THEN
+        DECLARE
+            l_err_code VARCHAR2(4000);
+        BEGIN
+            IF SQLERRM LIKE '%PAGINATION_%' THEN
+                l_err_code := REGEXP_SUBSTR(SQLERRM, 'PAGINATION_\w+');
+            ELSE
+                l_err_code := 'INTERNAL_SERVER_ERROR';
+            END IF;
+
+            error_handling_pkg_3.handle_error(
+                p_error_code  => l_err_code,
+                p_path        => p_path,
+                p_status_code => l_status_code
+            );
+
+            RETURN error_handling_pkg_3.generate_error_json(l_err_code, p_path);
+        END;
+
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
