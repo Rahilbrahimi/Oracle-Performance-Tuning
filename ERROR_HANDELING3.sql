@@ -69,32 +69,30 @@ create or replace PACKAGE BODY error_handling_pkg_3 AS
 ---FERESTADAN KHATA
   PROCEDURE raise_error(
     p_error_code IN VARCHAR2
-  ) IS
+) IS
     l_err_record t_err_record := get_error(NVL(p_error_code, 'UNKNOWN_ERROR'));
-  BEGIN
+BEGIN
     RAISE_APPLICATION_ERROR(-20000,
-      'Status: ' || l_err_record.status_code || ', ' ||
-      NVL(p_error_code, 'UNKNOWN_ERROR') || ': ' || l_err_record.message || ' - ' || l_err_record.details);
-  END raise_error;
+        NVL(p_error_code, 'UNKNOWN_ERROR') || ': ' || l_err_record.message); -- فقط کد و پیام
+END raise_error;
 
-  PROCEDURE handle_error(
+PROCEDURE handle_error(
     p_error_code IN VARCHAR2 DEFAULT NULL,
     p_path IN VARCHAR2 DEFAULT '/unknown/path',
     p_status_code OUT NUMBER
-  ) IS
-    l_err_code VARCHAR2(50);
-  BEGIN
-    
+) IS
+    l_err_code VARCHAR2(4000); -- ظرفیت افزایش یافته
+    l_sql_errm VARCHAR2(4000);
+BEGIN
+    l_sql_errm := SUBSTR(NVL(SQLERRM, 'System error'), 1, 4000);
     l_err_code := NVL(p_error_code, TO_CHAR(SQLCODE));
 
-    
     IF p_error_code IS NULL THEN
-        l_err_code := REGEXP_REPLACE(NVL(SQLERRM, 'System error'), '^ORA-\d+: ', '');
+        l_err_code := REGEXP_REPLACE(l_sql_errm, '^ORA-\d+: ', '');
     END IF;
 
     p_status_code := get_error(l_err_code).status_code;
-
-  
-    DBMS_OUTPUT.PUT_LINE(generate_error_json(l_err_code, p_path));
-  END handle_error;
+    -- فقط پیام خطا لاگ می‌شه
+    ---DBMS_OUTPUT.PUT_LINE('Error: ' || l_err_code || ' at ' || p_path);
+END handle_error;
 END error_handling_pkg_3;
