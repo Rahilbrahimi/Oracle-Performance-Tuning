@@ -1,0 +1,73 @@
+--test baraye package pagination:
+-- مرحله ۱: ساخت جدول تستی
+DROP TABLE test_pagination_tab PURGE;
+
+CREATE TABLE test_pagination_tab (
+    id   NUMBER,
+    name VARCHAR2(50)
+);
+
+-- مرحله ۲: درج چند رکورد تستی
+INSERT INTO test_pagination_tab VALUES (1, 'Ali');
+INSERT INTO test_pagination_tab VALUES (2, 'Sara');
+INSERT INTO test_pagination_tab VALUES (3, 'Reza');
+INSERT INTO test_pagination_tab VALUES (4, 'Niloofar');
+INSERT INTO test_pagination_tab VALUES (5, 'Mina');
+COMMIT;
+
+-- مرحله ۳: تست‌های مختلف
+SET SERVEROUTPUT ON;
+
+DECLARE
+  l_result CLOB;
+  l_json   CLOB;
+BEGIN
+  -- گرفتن JSON واقعی از جدول
+  SELECT JSON_ARRAYAGG(
+           JSON_OBJECT(
+             'id'   VALUE t.id,
+             'name' VALUE t.name
+           )
+         RETURNING CLOB)
+  INTO l_json
+  FROM test_pagination_tab t;
+
+  DBMS_OUTPUT.PUT_LINE('### Full JSON from Table:');
+  DBMS_OUTPUT.PUT_LINE(l_json);
+
+  -- تست ۱: ورودی null
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 1: NULL INPUT ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob(NULL, 0, 10);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۲: ورودی JSON نامعتبر
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 2: INVALID JSON ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob('invalid json', 0, 10);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۳: آرایه خالی
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 3: EMPTY ARRAY ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob('[]', 0, 10);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۴: limit منفی
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 4: NEGATIVE LIMIT ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob(l_json, 0, -5);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۵: صفحه اول داده‌ها
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 5: PAGE 1 ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob(l_json, 0, 2);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۶: صفحه دوم داده‌ها
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 6: PAGE 2 ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob(l_json, 2, 2);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+
+  -- تست ۷: offset بزرگتر از تعداد رکوردها
+  DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- TEST 7: BIG OFFSET ---');
+  l_result := pagination_pkg_opt.get_paginated_data_from_clob(l_json, 10, 5);
+  DBMS_OUTPUT.PUT_LINE(l_result);
+END;
+/
