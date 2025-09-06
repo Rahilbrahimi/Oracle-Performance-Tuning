@@ -71,3 +71,8 @@ BEGIN
   DBMS_OUTPUT.PUT_LINE(l_result);
 END;
 /
+
+PAGINATION_NULL	400	Input JSON CLOB is NULL	The input parameter p_json_clob cannot be null
+PAGINATION_INVALID_JSON	400	Invalid JSON format	The provided CLOB is not a valid JSON document
+PAGINATION_NO_ARRAY	400	JSON Array not found	The input JSON must contain at least one array to paginate
+PAGINATION_LIMIT_ERR	400	Invalid limit or offset	Limit and offset must be non-negative integers
