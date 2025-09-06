@@ -12,18 +12,16 @@ create or replace PACKAGE pagination_pkg_opt AS
       p_path      IN VARCHAR2 DEFAULT '/api/v1/data'
   ) RETURN CLOB;
 END pagination_pkg_opt;
-
 create or replace PACKAGE BODY pagination_pkg_opt AS
 
----function update_url_with_pagination
-
+  -- تابع update_url_with_pagination
   FUNCTION update_url_with_pagination(
       p_url    IN VARCHAR2,
       p_offset IN NUMBER,
       p_limit  IN NUMBER
   ) RETURN VARCHAR2 IS
       l_url       VARCHAR2(4000) := p_url;
-      l_offset    VARCHAR2(50) := TO_CHAR(p_offset);  --Convert offset and limit to text (VARCHAR2) for use in REGEXP_REPLACE
+      l_offset    VARCHAR2(50) := TO_CHAR(p_offset);
       l_limit     VARCHAR2(50) := TO_CHAR(p_limit);
       has_offset  BOOLEAN := FALSE;
       has_limit   BOOLEAN := FALSE;
@@ -183,4 +181,3 @@ EXCEPTION
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
-
