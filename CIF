@@ -1,0 +1,55 @@
+CREATE OR REPLACE PACKAGE BODY pkg_cif_nid_api AS
+
+  FUNCTION get_cif_or_nid(
+    p_input IN VARCHAR2,
+    p_path  IN VARCHAR2 DEFAULT '/api/v1/cif_nid'
+  ) RETURN CLOB
+  IS
+    l_output       VARCHAR2(4000);
+    l_json_obj     JSON_OBJECT_T := NEW JSON_OBJECT_T();
+    l_uuid         VARCHAR2(36) := LOWER(RAWTOHEX(SYS_GUID()));
+    l_status_code  NUMBER;
+  BEGIN
+    -- Validation ورودی
+    IF p_input IS NULL OR LENGTH(TRIM(p_input)) = 0 THEN
+      error_handling_pkg_3.raise_error('INVALID_INPUT');
+    ELSIF LENGTH(p_input) > 20 THEN
+      error_handling_pkg_3.raise_error('INPUT_TOO_LONG');
+    END IF;
+
+    -- بررسی طول برای تعیین نوع ورودی
+    BEGIN
+      IF LENGTH(p_input) = 10 THEN
+        SELECT account_no INTO l_output
+        FROM t_cif
+        WHERE external_id = p_input;
+      ELSE
+        SELECT external_id INTO l_output
+        FROM t_cif
+        WHERE account_no = p_input;
+      END IF;
+    EXCEPTION
+      WHEN NO_DATA_FOUND THEN
+        error_handling_pkg_3.raise_error('NOT_FOUND');
+    END;
+
+    -- ساخت JSON استاندارد
+    l_json_obj.put('status', 'success');
+    l_json_obj.put('statusCode', 200);
+    l_json_obj.put('data', l_output);
+    l_json_obj.put('timestamp', TO_CHAR(SYSTIMESTAMP, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'));
+    l_json_obj.put('path', p_path);
+    l_json_obj.put('requestId',
+      SUBSTR(l_uuid, 1, 8) || '-' || SUBSTR(l_uuid, 9, 4) || '-' ||
+      SUBSTR(l_uuid, 13, 4) || '-' || SUBSTR(l_uuid, 17, 4) || '-' || SUBSTR(l_uuid, 21));
+
+    RETURN l_json_obj.to_clob();
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      
+        error_handling_pkg_3.handle_error(NULL, p_path, l_status_code);
+    RETURN error_handling_pkg_3.generate_error_json(NULL, p_path);
+  END get_cif_or_nid;
+
+END pkg_cif_nid_api;
