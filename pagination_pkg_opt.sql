@@ -283,29 +283,39 @@ BEGIN
 
  
 
-  -- تابع اصلی pagination
+ ----------------------------------------------------
+/**
+ * main function 
+ */
+------------------------------------------------
   FUNCTION get_paginated_data_from_clob(
       p_json_clob IN CLOB,
       p_offset    IN NUMBER DEFAULT 0,
       p_limit     IN NUMBER DEFAULT 100,
       p_path      IN VARCHAR2 DEFAULT '/api/v1/data'
   ) RETURN CLOB IS
-      l_json_obj       JSON_OBJECT_T := NEW JSON_OBJECT_T();
+       l_json_obj       JSON_OBJECT_T := NEW JSON_OBJECT_T();
       l_data_array     JSON_ARRAY_T;
+      l_slice_array    JSON_ARRAY_T := NEW JSON_ARRAY_T();
       l_pagination_obj JSON_OBJECT_T := NEW JSON_OBJECT_T();
-      l_links_array    JSON_ARRAY_T := NEW JSON_ARRAY_T();
       l_total_count    NUMBER;
       l_end_index      NUMBER;
-      l_slice_array    JSON_ARRAY_T := NEW JSON_ARRAY_T();
-      l_link_obj       JSON_OBJECT_T;
       l_status_code    NUMBER;
   BEGIN
-      -- شرط 1: ورودی نباید NULL باشد
+     ------------------------------------------------------
+   /**
+    *pagination null 
+    */
+   -------------------------------------------------------------
       IF p_json_clob IS NULL THEN
           error_handling_pkg_3.raise_error('PAGINATION_NULL');
       END IF;
 
-      -- شرط 2: ورودی باید JSON معتبر از نوع Array باشد
+   -------------------------------------------------------------
+/**
+ *pagination_invalid_json
+ */
+------------------------------------------------------------
       BEGIN
           l_data_array := JSON_ARRAY_T.parse(p_json_clob);
       EXCEPTION
@@ -317,64 +327,37 @@ BEGIN
           error_handling_pkg_3.raise_error('PAGINATION_NO_ARRAY');
       END IF;
 
-      -- شرط 3: بررسی offset و limit
-      IF p_offset < 0 OR p_limit < 1 THEN
-          error_handling_pkg_3.raise_error('PAGINATION_LIMIT_ERR');
-      END IF;
-
-      -- محاسبه total_count، slice کردن داده‌ها، تولید لینک‌ها، و ساخت JSON موفقیت
-      l_total_count := l_data_array.get_size;
+     ----------validation
+validate_offset (p_offset);
+validate_limit(p_limit);
+---------------------------------------------------
+/**
+ *Calculate total_count, slice data, generate links, and build JSON success
+ */
+------------------------------------------------------------------------------ 
+     l_total_count := count_items(l_data_array);
       l_end_index := LEAST(p_offset + p_limit, l_total_count);
-
       FOR i IN p_offset + 1 .. l_end_index LOOP
           l_slice_array.append(l_data_array.get(i - 1));
       END LOOP;
 
-      -- لینک‌ها
-      l_link_obj := NEW JSON_OBJECT_T();
-      l_link_obj.put('rel','self');
-      l_link_obj.put('href', update_url_with_pagination(p_path, p_offset, p_limit));
-      l_links_array.append(l_link_obj);
 
-      l_link_obj := NEW JSON_OBJECT_T();
-      l_link_obj.put('rel','first');
-      l_link_obj.put('href', update_url_with_pagination(p_path, 0, p_limit));
-      l_links_array.append(l_link_obj);
-
-      IF p_offset > 0 THEN
-          l_link_obj := NEW JSON_OBJECT_T();
-          l_link_obj.put('rel','previous');
-          l_link_obj.put('href', update_url_with_pagination(p_path, GREATEST(p_offset - p_limit, 0), p_limit));
-          l_links_array.append(l_link_obj);
-      END IF;
-
-      IF (p_offset + p_limit) < l_total_count THEN
-          l_link_obj := NEW JSON_OBJECT_T();
-          l_link_obj.put('rel','next');
-          l_link_obj.put('href', update_url_with_pagination(p_path, p_offset + p_limit, p_limit));
-          l_links_array.append(l_link_obj);
-      END IF;
-
-      IF l_total_count > p_limit THEN
-          l_link_obj := NEW JSON_OBJECT_T();
-          l_link_obj.put('rel','last');
-          l_link_obj.put('href', update_url_with_pagination(
-              p_path,
-              (TRUNC((l_total_count - 1) / p_limit) * p_limit),
-              p_limit
-          ));
-          l_links_array.append(l_link_obj);
-      END IF;
-
-      -- خروجی موفق
+  
+ ----------------------------------
+/**
+ *Successful exit
+ */
+------------------------------------------
       l_json_obj.put('status','success');
       l_json_obj.put('data', l_slice_array);
+
       l_pagination_obj.put('limit', p_limit);
       l_pagination_obj.put('offset', p_offset);
       l_pagination_obj.put('count', l_slice_array.get_size);
-      l_pagination_obj.put('hasMore', (p_offset + p_limit) < l_total_count);
+      l_pagination_obj.put('hasMore', has_next_page(p_offset, p_limit, l_total_count));
       l_pagination_obj.put('total', l_total_count);
-      l_pagination_obj.put('links', l_links_array);
+      l_pagination_obj.put('links', build_pagination_links(p_path, p_offset, p_limit, l_total_count));
+
       l_json_obj.put('pagination', l_pagination_obj);
 
       RETURN l_json_obj.to_clob();
@@ -402,6 +385,7 @@ EXCEPTION
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
+
 
 
 
