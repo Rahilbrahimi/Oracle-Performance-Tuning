@@ -136,24 +136,87 @@ FUNCTION get_paginated_data_from_clob(
 
 
 create or replace PACKAGE BODY pagination_pkg_opt AS
+-------------------------------------------------------------------------------
+ /**
+  *Extract offset and limit from sql query
+  */
+ --------------------------------------------------
+ procedure get_offset_limit_from_query(
+   p_Sql_query IN VARCHAR2,
+   p_offset OUT NUMBER,
+   p_limit OUT NUMBER,
+   P_DEFAULT_OFFSET IN NUMBER DEFAULT 0,
+   p_default_limit IN number DEFAULT 100
+ ) IS 
+ BEGIN 
+   p_offset := NVL(
+      TO_NUMBER(
+           REGEXP_SUBSTR(p_sql_query,'OFFSET\s+(\d+)\s+ROWS',1,1,NULL,1)
+      ),
+      p_default_offset 
+ );
+  p_limit := NVL(TO_NUMBER(REGEX_SUBSTR(p_sql_query,'FETCH\s+NEXT\s+(\d+)\s+ROWS\s+ONLY',1, 1, NULL, 1)
+   ),
+   p_default_limit
 
-  -- تابع update_url_with_pagination
-  FUNCTION update_url_with_pagination(
-      p_url    IN VARCHAR2,
-      p_offset IN NUMBER,
-      p_limit  IN NUMBER
-  ) RETURN VARCHAR2 IS
-      l_url       VARCHAR2(4000) := p_url;
-      l_offset    VARCHAR2(50) := TO_CHAR(p_offset);
-      l_limit     VARCHAR2(50) := TO_CHAR(p_limit);
-      has_offset  BOOLEAN := FALSE;
-      has_limit   BOOLEAN := FALSE;
+  );
+END get_offset_limit_from_query;
+
+-------------------------------------------------------------------------------------
+/**
+ *VALIDATION 
+ */
+-------------------------------------------------------------------------------------
+ PROCEDURE validate_offset(p_offset IN NUMBER) IS
   BEGIN
-      -- Checking for existence of offset
-      IF REGEXP_INSTR(l_url, '([?&]offset=)') > 0 THEN
-          has_offset := TRUE;
-          l_url := REGEXP_REPLACE(l_url, '([?&]offset=)([^&]*)', '\1' || l_offset);
+      IF p_offset < 0 THEN
+          error_handling_pkg_3.raise_error('PAGINATION_OFFSET_ERR');
       END IF;
+  END validate_offset;
+
+  PROCEDURE validate_limit(p_limit IN NUMBER) IS
+  BEGIN
+      IF p_limit < 1 THEN
+          error_handling_pkg_3.raise_error('PAGINATION_LIMIT_ERR');
+      END IF;
+  END validate_limit;
+------------------------------------------------------------------------------
+/**
+ *Update URL if offset/limit exists
+ */
+------------------------------------------------------------------------
+ FUNCTION update_url_with_pagination(
+    p_url    IN VARCHAR2,
+    p_offset IN NUMBER,
+    p_limit  IN NUMBER
+) RETURN VARCHAR2 IS
+    l_url VARCHAR2(4000) := p_url;
+BEGIN
+ IF REGEXP_INSTR(l_url, '([?&]offset=)') > 0 THEN
+        l_url := REGEXP_REPLACE(l_url, '([?&]offset=)([^&]*)', '\1' || p_offset);
+    END IF;
+ IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
+        l_url := REGEXP_REPLACE(l_url, '([?&]limit=)([^&]*)', '\1' || p_limit);
+    END IF;
+  RETURN l_url;
+END update_url_with_pagination;
+------------------------------------------------------------------------
+/**
+ *Count and next page
+ */
+------------------------------------------------------------------
+FUNCTION count_items(p_data JSON_ARRAY_T) RETURN NUMBER IS
+  BEGIN
+      RETURN p_data.get_size;
+  END count_items;
+
+  FUNCTION has_next_page(p_offset IN NUMBER, p_limit IN NUMBER, p_total IN NUMBER) RETURN BOOLEAN IS
+  BEGIN
+      RETURN (p_offset + p_limit) < p_total;
+  END has_next_page;
+---------------------------------------------------------------------------------
+
+ 
 
       -- Checking for existence of limit
       IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
@@ -304,4 +367,5 @@ EXCEPTION
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
+
 
