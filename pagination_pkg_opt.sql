@@ -215,38 +215,73 @@ FUNCTION count_items(p_data JSON_ARRAY_T) RETURN NUMBER IS
       RETURN (p_offset + p_limit) < p_total;
   END has_next_page;
 ---------------------------------------------------------------------------------
+/**
+ *remove last element
+ */
+------------------------------------------------------------------------------
+procedure remove_last_element(p_data IN OUT NOCOPY JSON_ARRAY_T) IS 
+BEGIN 
+   IF p_data.get_size >0 then 
+     p_data.remove(p_data.get_Size-1);
+  end id;
+end remove_last_element;
+------------------------------------------------------------------------
+/**
+ * build function links
+ */
+----------------------------------------------------------
+function build_pagination_links(
+  p_path in varchar2,
+  p_offset in number,
+  p_limit in number,
+  p_total in number 
+)return JSON_ARRAY_T is 
+ i_link_array JSON_ARRAY_T := NEW JSON_ARRAY_T();
+ i_link_obj JSON_OBJECT_T;
+BEGIN 
+ ---self
+ l_link_obj := NEW JSON_OBJECT_T();
+      l_link_obj.put('rel','self');
+      l_link_obj.put('href', update_url_with_pagination(p_path, p_offset, p_limit));
+      l_links_array.append(l_link_obj);
+ -- first
+      l_link_obj := NEW JSON_OBJECT_T();
+      l_link_obj.put('rel','first');
+      l_link_obj.put('href', update_url_with_pagination(p_path, 0, p_limit));
+      l_links_array.append(l_link_obj);
+
+      -- prev
+      IF p_offset > 0 THEN
+          l_link_obj := NEW JSON_OBJECT_T();
+          l_link_obj.put('rel','previous');
+          l_link_obj.put('href', update_url_with_pagination(p_path, GREATEST(p_offset - p_limit, 0), p_limit));
+          l_links_array.append(l_link_obj);
+      END IF;
+
+      -- next
+      IF has_next_page(p_offset, p_limit, p_total) THEN
+          l_link_obj := NEW JSON_OBJECT_T();
+          l_link_obj.put('rel','next');
+          l_link_obj.put('href', update_url_with_pagination(p_path, p_offset + p_limit, p_limit));
+          l_links_array.append(l_link_obj);
+      END IF;
+
+      -- last
+      IF p_total > p_limit THEN
+          l_link_obj := NEW JSON_OBJECT_T();
+          l_link_obj.put('rel','last');
+          l_link_obj.put('href', update_url_with_pagination(
+              p_path,
+              (TRUNC((p_total - 1) / p_limit) * p_limit),
+              p_limit
+          ));
+          l_links_array.append(l_link_obj);
+      END IF;
+
+      RETURN l_links_array;
+  END build_pagination_links;
 
  
-
-      -- Checking for existence of limit
-      IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
-          has_limit := TRUE;
-          l_url := REGEXP_REPLACE(l_url, '([?&]limit=)([^&]*)', '\1' || l_limit);
-      END IF;
-
-      -- There is an offset but no limit
-      IF has_offset AND NOT has_limit THEN
-          l_url := REGEXP_REPLACE(l_url, '(offset=' || l_offset || ')', '\1&limit=' || l_limit);
-      END IF;
-
-      -- There is a limit but no offset
-      IF has_limit AND NOT has_offset THEN
-          l_url := REGEXP_REPLACE(l_url,
-                                  '([?&])limit=',
-                                  '\1offset=' || l_offset || CHR(38) || 'limit=');
-      END IF;
-
-      -- No limit, no offset
-      IF NOT has_offset AND NOT has_limit THEN
-          IF INSTR(l_url, '?') > 0 THEN
-              l_url := l_url || CHR(38) || 'offset=' || l_offset || CHR(38) || 'limit=' || l_limit;
-          ELSE
-              l_url := l_url || CHR(63) || 'offset=' || l_offset || CHR(38) || 'limit=' || l_limit;
-          END IF;
-      END IF;
-
-      RETURN l_url;
-  END update_url_with_pagination;
 
   -- تابع اصلی pagination
   FUNCTION get_paginated_data_from_clob(
@@ -367,5 +402,6 @@ EXCEPTION
   END get_paginated_data_from_clob;
 
 END pagination_pkg_opt;
+
 
 
