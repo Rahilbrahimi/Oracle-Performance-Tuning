@@ -1,3 +1,16 @@
+/*********************************************************************
+ * PACKAGE: pagination_pkg_opt_3
+ *
+ * This package provides utilities for paginating JSON data stored as CLOB.
+ * It supports extracting offset and limit from SQL queries, validating inputs,
+ * slicing JSON arrays, building pagination links, and generating paginated JSON responses.
+ *********************************************************************/
+
+/**
+ * this package new version by update_url.
+ */
+ 
+
 CREATE OR REPLACE PACKAGE pagination_pkg_opt_new_version AS
     /**
      * Default starting offset used when not provided in the URL.
