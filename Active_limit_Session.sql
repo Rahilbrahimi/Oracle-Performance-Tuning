@@ -1,4 +1,37 @@
 ----
+/*
+===============================================================================
+SYS_CONTEXT Function – Internal Documentation
+===============================================================================
+Description:
+    Retrieves environment and session information from Oracle Database.
+    Useful for security triggers, auditing, and resource enforcement.
+
+Syntax:
+    SYS_CONTEXT(namespace, parameter [, length])
+
+Common USERENV Parameters:
+    - SESSION_USER
+    - CURRENT_USER
+    - SID
+    - INSTANCE
+    - IP_ADDRESS
+    - HOST
+    - TERMINAL
+
+Example:
+    SELECT SYS_CONTEXT('USERENV', 'SID'),
+           SYS_CONTEXT('USERENV', 'INSTANCE')
+      FROM dual;
+===============================================================================
+*/
+
+/**CREATE OR REPLACE TRIGGER limit_pga_usage_derpt
+ *AFTER LOGON ON DATABASE
+ */
+
+...
+
 /**
  * Trigger Name: limit_active_sessions_derpt
  * 
