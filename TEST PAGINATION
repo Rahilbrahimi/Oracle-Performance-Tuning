@@ -1,0 +1,42 @@
+DECLARE
+    l_input  CLOB := '[
+      {"id":1,"name":"Ali"},
+      {"id":2,"name":"Sara"},
+      {"id":3,"name":"Reza"},
+      {"id":4,"name":"Maryam"},
+      {"id":5,"name":"Nima"},
+      {"id":6,"name":"Hoda"},
+      {"id":7,"name":"Amir"},
+      {"id":8,"name":"Shirin"},
+      {"id":9,"name":"Pouya"},
+      {"id":10,"name":"Leila"}
+    ]';
+    l_output CLOB;
+BEGIN
+    -- صفحه اول (offset=0, limit=3)
+    l_output := pagination_pkg_opt.get_paginated_data_from_clob(
+                   p_json_clob => l_input,
+                   p_offset    => 3,
+                   p_limit     => 3,
+                   p_path      => '/api/v1/users'
+                );
+    DBMS_OUTPUT.put_line(l_output);
+end;
+    -- صفحه دوم (offset=3, limit=3)
+    l_output := pagination_pkg_opt.get_paginated_data_from_clob(
+                   p_json_clob => l_input,
+                   p_offset    => 3,
+                   p_limit     => 3,
+                   p_path      => '/api/v1/users'
+                );
+    DBMS_OUTPUT.put_line(l_output);
+
+    -- صفحه آخر (offset=9, limit=3)
+    l_output := pagination_pkg_opt.get_paginated_data_from_clob(
+                   p_json_clob => l_input,
+                   p_offset    => 9,
+                   p_limit     => 3,
+                   p_path      => '/api/v1/users'
+                );
+    DBMS_OUTPUT.put_line(l_output);
+END;

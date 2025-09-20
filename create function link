@@ -1,0 +1,50 @@
+--1 sakhte linkha:
+create or replace FUNCTION update_url_with_pagination(
+    p_url    IN VARCHAR2,
+    p_offset IN NUMBER,
+    p_limit  IN NUMBER
+) RETURN VARCHAR2 IS
+    l_url       VARCHAR2(4000) := p_url;
+    l_offset    VARCHAR2(50) := TO_CHAR(p_offset);
+    l_limit     VARCHAR2(50) := TO_CHAR(p_limit);
+    has_offset  BOOLEAN := FALSE;
+    has_limit   BOOLEAN := FALSE;
+BEGIN
+   --Checking for existence of offset
+    IF REGEXP_INSTR(l_url, '([?&]offset=)') > 0 THEN
+        has_offset := TRUE;
+        l_url := REGEXP_REPLACE(l_url, '([?&]offset=)([^&]*)', '\1' || l_offset);
+    END IF;
+
+--Checking for existence of limit
+
+    IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
+        has_limit := TRUE;
+        l_url := REGEXP_REPLACE(l_url, '([?&]limit=)([^&]*)', '\1' || l_limit);
+    END IF;
+
+---There is an offset but no limit.
+
+    IF has_offset AND NOT has_limit THEN
+       l_url := REGEXP_REPLACE(l_url, '(offset=' || l_offset || ')', '\1&limit=' || l_limit);
+
+    END IF;
+
+  ---There is an  but no offset.
+    IF has_limit AND NOT has_offset THEN
+        l_url := REGEXP_REPLACE(l_url,
+                                '([?&])limit=',
+                                '\1offset=' || l_offset ||  CHR(38) || 'limit=');
+    END IF;
+
+  --no limit ,no offset 
+    IF NOT has_offset AND NOT has_limit THEN
+        IF INSTR(l_url, '?') > 0 THEN
+            l_url := l_url || CHR(38) || 'offset=' || l_offset || CHR(38) || 'limit=' || l_limit;
+        ELSE
+            l_url := l_url ||  CHR(63) || 'offset=' || l_offset || CHR(38) || 'limit=' || l_limit;
+        END IF;
+    END IF;
+
+    RETURN l_url;
+END;

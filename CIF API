@@ -1,0 +1,11 @@
+CREATE TABLE customer_cif (
+    cif        VARCHAR2(20) PRIMARY KEY,
+    nationalid VARCHAR2(10) UNIQUE NOT NULL
+);
+
+-- چند رکورد نمونه برای تست
+INSERT INTO customer_cif (cif, nationalid) VALUES ('CIF001', 'NID1001');
+INSERT INTO customer_cif (cif, nationalid) VALUES ('CIF002', 'NID1002');
+INSERT INTO customer_cif (cif, nationalid) VALUES ('CIF003', 'NID1003');
+
+COMMIT;
