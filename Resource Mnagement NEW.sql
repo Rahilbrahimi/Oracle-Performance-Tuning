@@ -124,6 +124,8 @@ END;
 
 
 
+
+
 /**
  *mahdoodiyat ha:
  *hadaksar 28 consumer group dar yek plan mitoone active bashe.
@@ -244,7 +246,7 @@ SELECT * FROM DBA_RSRC_CONSUMER_GROUPS;
 -- Mapping کاربران
 SELECT * FROM DBA_RSRC_CONSUMER_GROUP_PRIVS;
 
--- مشاهده sessionهای فعال و گروه‌های اختصاص داده شده
+-- 
 SELECT username, resource_consumer_group
 FROM v$session
 WHERE username = 'TEST_USER';

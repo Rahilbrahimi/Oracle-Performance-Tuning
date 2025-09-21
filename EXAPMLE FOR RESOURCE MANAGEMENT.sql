@@ -184,4 +184,13 @@ SELECT * FROM dba_objects CONNECT BY LEVEL <= 100;
 
 
 
+----baraye chek kardan parallel ham mitoonim query zir ra anjam bedim :
+SELECT /*+ parallel(test_parallel 4) */ COUNT(*)
+FROM test_parallel;
+
+---va sepas az v$sql_monitor soton PX_MAXDOP tedad parallel ekhtesas yafte ra check konim.
+
+
+
+
 
