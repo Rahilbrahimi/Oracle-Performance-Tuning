@@ -77,6 +77,7 @@ END;
 /**
  *Mapping Users to Consumer Groups:
  *taeen mikonim har user vared kodom group beshe
+ *in kamelan daste on karbari hast ke dasteresi dare in kar anjam bede va on taeen mikone ke che user be che consumer group vasl beshe.
  */
  
  BEGIN
@@ -106,6 +107,18 @@ BEGIN
     grant_option   => FALSE);
   DBMS_RESOURCE_MANAGER.set_initial_consumer_group('USER2', 'MART');
   
+END;
+/
+/**
+ *
+ *ba dastoor zir mitoonti grant rsource manager be taraf bedi ba dastoor zir masalan user DBA_USER khodesh mitoone plan besaze va ...
+ */
+ BEGIN
+  DBMS_RESOURCE_MANAGER.GRANT_SYSTEM_PRIVILEGE(
+    grantee_name   => 'DBA_USER',
+    privilege_name => 'ADMINISTER_RESOURCE_MANAGER',
+    admin_option   => TRUE
+  );
 END;
 /
 
