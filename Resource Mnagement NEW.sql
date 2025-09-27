@@ -251,5 +251,12 @@ SELECT username, resource_consumer_group
 FROM v$session
 WHERE username = 'TEST_USER';
 
+select * from v$version;
+SELECT argument_name, data_type, in_out
+FROM all_arguments
+WHERE object_name = 'CREATE_PLAN_DIRECTIVE'
+  AND package_name = 'DBMS_RESOURCE_MANAGER'
+ORDER BY sequence;
+
    
   
