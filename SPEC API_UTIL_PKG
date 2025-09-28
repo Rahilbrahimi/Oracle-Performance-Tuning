@@ -21,17 +21,6 @@ funtion get_query_param(
    p_name in varchar2) 
 return varchar2;
 
-/**
- *gereftan meghdar yek query parameter ba validation
- *agar meghdar motabar nabood meghdar pish farz barmighrdoone.
- *@return meghdar adadi motabar.
- */
-function get_number_param (
-   p_name in varchar2,
-   p_default in pls_integer
-)return pls_inetegr;
-
-
 end api_util_pkg;
 /
 
