@@ -38,22 +38,22 @@ function get_query_param (p_name in varchar2)return varchar2 is
    i_query_string varchar2(4000);
    i_param_value varchar2(4000);
 begin 
-   i_query_String := owa_util.get_cgi_env('QUERY_sTRING');
+   i_query_String := owa_util.get_cgi_env('QUERY_STRING');
    IF I_QUERY_sTRING IS NULL THEN 
       RETURN NULL;
   END IF;
 
 for REC IN (
-   SELECT regexp_substr(i_query_string,'[^&]+',1,LEVEL) AS PARAM_PAIR
-   FROM DUAL
-   CONNECT BY LEVEL <= REGEXP_COUNT(I_QUERY_STRING,'&')+1
+   SELECT REGEX_SUBSTR(i_query_string,'[^&]+',1,LEVEL) AS param_pair
+   from dual 
+   connect by LEVEL <= REGEXP_COUNT(i_query_String,'&')+1
 )
 LOOP 
-   IF REC.PARAM_PAIR LIKE P_NAME '=%' THEN 
-     I_PARAM_VALUE := SUBSTR(REC.PARAM_PAIR,LENGTH(P_NAME)+2);
-     RETURN I_PARAM_VALUE;
-   END IF;
-END LOOP;
+  IF REGEXP_LIKE(rec.param_pair, '^' || p_name || '=') THEN
+        i_param_value := REGEXP_REPLACE(rec.param_pair, '^' || p_name || '=', '');
+        RETURN UTL_URL.UNESCAPE(i_param_value);
+      END IF;
+    END LOOP;
 
 RETURN NULL;
 
@@ -64,4 +64,4 @@ END get_query_param;
 
 end api_util_pkg;
 
-
+/
