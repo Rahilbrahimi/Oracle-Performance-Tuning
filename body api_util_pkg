@@ -64,9 +64,4 @@ END get_query_param;
 
 end api_util_pkg;
 
-/
 
-
-
-
-end
