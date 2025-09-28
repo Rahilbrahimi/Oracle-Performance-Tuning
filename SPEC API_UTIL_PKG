@@ -1,0 +1,37 @@
+CREATE OR REPLACE PACKAGE API_UTIL_PKG AS 
+
+/**
+ *gereftan base path az header X-APEX-BASE
+ *@RETURN masir base 
+ */
+FUNCTION get_uri_base_path 
+   terun varchar2;
+/**
+ *gereftan uri path az header
+ * @ return masir kamel uri
+ */
+
+FUNCTION get_uri_path 
+   return VARCHAR2;
+/** 
+ * gereftan meghdar yek query parameter az url
+ * @return meghdar parameter
+ */
+funtion get_query_param(
+   p_name in varchar2) 
+return varchar2;
+
+/**
+ *gereftan meghdar yek query parameter ba validation
+ *agar meghdar motabar nabood meghdar pish farz barmighrdoone.
+ *@return meghdar adadi motabar.
+ */
+function get_number_param (
+   p_name in varchar2,
+   p_default in pls_integer
+)return pls_inetegr;
+
+
+end api_util_pkg;
+/
+
