@@ -1,8 +1,0 @@
-
-CREATE OR REPLACE PROCEDURE TEST1 is
- 
-begin
-   dbms_output.put_line("say hello");
-
-end;
-
