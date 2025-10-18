@@ -1,0 +1,67 @@
+create or replace package bpdy api_util_pkg as 
+
+/**
+ *URL & PATH
+ */
+FUNCTION get_URI_BASE_PATH return varchar2 is 
+   i_path varchar2(4000);
+begin 
+   i_path := owa_util.get_cgi_env('X-APEX-BASE');
+   IF I_PATH IS NULL THEN
+      ERROR_HANDELING_PKG_3.RAISE_ERROR('ERR_INVALID_BASE_PATH');
+END IF ;
+RETURN '/' ||I_PATH;
+EXCEPTION
+   WHEN OTHERS THEN 
+       error_handeling_pkg_3.raise_error('ERR_INVALID_BASE_PATH');
+END get_uri_base_path;
+
+
+function get_uri_path return varchar2 is
+ i_path varchar2(4000);
+begin 
+   i_path := owa_util.get_cgi_env('X-APEX-PATH');
+      IF l_path IS NULL THEN
+         error_handling_pkg_3.raise_error('ERR_INVALID_URI_PATH');
+      END IF;
+      RETURN '/' || l_path;
+   EXCEPTION
+      WHEN OTHERS THEN
+         error_handling_pkg_3.raise_error('ERR_INVALID_URI_PATH');
+   END get_uri_path;
+
+
+------------------------------------------------------------
+--query params
+-----------------------------------------------------------------
+function get_query_param (p_name in varchar2)return varchar2 is 
+   i_query_string varchar2(4000);
+   i_param_value varchar2(4000);
+begin 
+   i_query_String := owa_util.get_cgi_env('QUERY_STRING');
+   IF I_QUERY_sTRING IS NULL THEN 
+      RETURN NULL;
+  END IF;
+
+for REC IN (
+   SELECT REGEX_SUBSTR(i_query_string,'[^&]+',1,LEVEL) AS param_pair
+   from dual 
+   connect by LEVEL <= REGEXP_COUNT(i_query_String,'&')+1
+)
+LOOP 
+  IF REGEXP_LIKE(rec.param_pair, '^' || p_name || '=') THEN
+        i_param_value := REGEXP_REPLACE(rec.param_pair, '^' || p_name || '=', '');
+        RETURN UTL_URL.UNESCAPE(i_param_value);
+      END IF;
+    END LOOP;
+
+RETURN NULL;
+
+EXCEPTION 
+   WHEN OTHERS THEN 
+      error_handeling_pkg_3.raise_error('ERR_QUERY_PARAM_PARSE');
+END get_query_param;
+
+end api_util_pkg;
+
+/

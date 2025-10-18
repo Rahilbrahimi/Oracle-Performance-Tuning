@@ -1,291 +1,215 @@
 create or replace package body pagination_pkg_opt_new_version
  /**
-  * Validates that the given offset is not negative.
-  *
-  * @param p_offset Offset value to validate.
-  * @raises PAGINATION_OFFSET_ERR if the offset is negative.
+  *DEFAULT VALUES 
   */
-procedure validate_offset(p_offset in number)is 
-  begin 
-    if p_offset <0 then 
-	    error_handeling_pkg_3.raise_Error('PAGINATION_OFFSET_ERR');
-	END IF ;
-END validate_offset;
-  
- /** 
+---------------------------------------------------
+DEFAULT_OFFSET CONSTANT PLS_INTEGER := 0;
+DFEAULT_LIMIT CONSTANT PLS_INTEGER := 10;
+DEFAULT_LIMIT_MAX CONSTANT PLS_INTEGER := 100;
+---------------------------------------------------------------------------------
+  /** 
    * validate that the given limit is greater than zero.
    * 
    * @param p_limit Limit value to validate.
    * @raises PAGINATION_LIMIT_ERR if the limit is less than 1.
    */
-procedure validate_limit(p_limit in number) is 
+procedure validate_limit(p_limit in OUT VARCHAR2) is 
  begin  
-    if p_limit <1 then 
-       error_handeling_pkg_3.raise_Error('PAGINATION_LIMIT_ERR');
+    IF P_LIMIT IS NULL THEN 
+       p_limit := TO_CHAR(DEFAULT_LIMIT);
+       RETURN;
     END IF;
+    IF NOT REGEXP_LIKE(p_limit,'^\d+$')then 
+          error_handeling_pkf_3.raise_error('PAGINATION_LIMIT_ERR');
+    END IF;
+    IF TO_NUMBER(p_limit) <1 THEN
+       ERROR_HANDELING_PKG_3.raise_error('PAGINATION_LIMIT_ERR');
+    end if;
 END validate_limit;
 
-/**
- * Updates a URL by replacing existing offset and limit query parameters.
- *
- * @param p_url Original URL string.
- * @param p_offset Offset value to embed.
- * @param p_limit Limit value to embed.
- * @return Updated URL string.
- */
-FUNCTION Update_url_with_pagination(
+-------------------------------------------------------------------------
+procedure validate_offset(p_offset IN OUT varchar2) is 
+  begin 
+     if p_offset is not null then 
+        p_offset := to_char(DEFAULT_OFFSET);
+     RETURN;
+  END IF;
 
-p_url in varchar2,
-p_offset in number,
-p_limit in number )
-return varchar2 is 
-  i_url varchar2(4000) := p_url;
-begin 
-    if REGEX_INSTR (i_url,'([?&]offset=)')>0 THEN 
-        i_url := REGEX_REPLACE(I_URL,'([?&]OFFSET=)([^&]*)','\1' || P_OFFSET);
-	END IF;
-	IF REGEXP_INSTR(l_url, '([?&]limit=)') > 0 THEN
-            l_url := REGEXP_REPLACE(l_url, '([?&]limit=)([^&]*)', '\1' || p_limit);
-        END IF;
-        RETURN l_url;
-	END Update_url_with_pagination;
-/** 
- * Extract offset and limit values from a URL query string.
- * 
- * @param p_url       URL string containing query parameters.
- * @param p_offset    OUT:Extracted offset value or default.
- * @param p_limit     OUT :Extracted limit value or default.
- * @param p_Default_offset Default offset if none found.
- * @param p_Default_limit Default limit if none found.
- */
-  
- procedure extract_offset_limit_from_url(
-    p_url IN varchar2,
-	p_offset out number,
-	p_limit out number,
-	p_defualt_offset in number default default_offset,
-	p_default_limit in number default default_limit 
-) is 
-begin 
-   p_offset := NVL(
-    to_number(regex_substr(p_url,'[?$]offset=(\d+)',1,1,null,1)),
-	p_default_offset 
-  );
-  p_limit := NVL(TO_NUMBER(REGEXP_SUBSTR(P_URL,'[?&]limit=(\d+)',1,1,null,1)),
-  p_default_limit 
-  );
-  end extract_offset_limit_from_url;
-  
- /**
-  * Counts the number of elements in a JSON aaray.
-  *
-  *@param p_data JSON_ARRAY_T object.
-  *@return Number of elements.
-  */
-function count_items(p_data JSON_ARRAY_T) RETURN NUMBER IS 
- BEGIN 
-    RETURN p_Data.get_size;
-end count_items;
+  IF NOT REGEXP_LIKE(P_OFFSET,'^\d+$') THEN 
+     error_handeling_pkg_3.raise_error('PAGINATION_OFFSET_ERR');
+  END IF;
 
- /**
-  * Determines if another page exists after the current one.
-  *
-  * @param p_offset Current offset.
-  * @param p_limit  Current limit.
-  * @param p_total  Total items available.
-  * @return TRUE if there is a next page, FALSE otherwise.
-  */
- 
- FUNCTION  has_next_page (p_offset in number ,p_limit in number,p_total in number_return boolean is 
- begin 
-    return (p_offset+p_limit)<p_total;
- end has_next_page;
- 
-/**
- * Removes the last element from a JSON aaray if it exists.
- *
- *@ param p_Data JSON_ARRAY_T object (modified IN OUT).
- */
- PROCEDURE REMOVE_LAST_ELEMENT (P_dATA IN OUT NOCOPY JSON_ARRAY_T) IS 
- BEGIN 
-    IF P_DATA.GET_sIZE >0 THEN 
-	  P_dATA.REMOVE(P_dATA.GET_SIZE -1);
-	END IF ;
-END REMOVE_LAST_ELEMENT;
+  IF TO_NUMBER(p_OOFSET)< 0 THEN 
+     error_handeling_pkg_3.raise_error('PAGINATION_OFFSET_ERR');
+  END IF;
+END VALIDATE_OFFSET;
+---------------------------------------------------------
+-- Count items in JSON array
+  ---------------------------------------------------------------------------
+  FUNCTION fnCount(p_arr IN JSON_ARRAY_T) RETURN PLS_INTEGER IS
+  BEGIN
+    RETURN p_arr.get_size();
+  END fnCount;
 
- /**
-     * Builds pagination links (self, first, previous, next, last).
-     *
-     * @param p_path   Base URL or path.
-     * @param p_offset Current offset.
-     * @param p_limit  Current limit.
-     * @param p_total  Total number of items.
-     * @return JSON_ARRAY_T of pagination link objects.
-     */
-    FUNCTION build_pagination_links(
-        p_path IN VARCHAR2,
-        p_offset IN NUMBER,
-        p_limit IN NUMBER,
-        p_total IN NUMBER
-    ) RETURN JSON_ARRAY_T IS
-        l_links_array JSON_ARRAY_T := NEW JSON_ARRAY_T();
-        l_link_obj JSON_OBJECT_T;
-    BEGIN
-        l_link_obj := NEW JSON_OBJECT_T();
-        l_link_obj.put('rel','self');
-        l_link_obj.put('href', update_url_with_pagination(p_path, p_offset, p_limit));
-        l_links_array.append(l_link_obj);
+  ---------------------------------------------------------------------------
+  -- Calculate total pages
+  ---------------------------------------------------------------------------
+  FUNCTION totalPages(p_total_count IN PLS_INTEGER, p_size IN PLS_INTEGER) RETURN PLS_INTEGER IS
+  BEGIN
+    IF p_size <= 0 THEN
+      RETURN 0;
+    ELSE
+      RETURN CEIL(p_total_count / p_size);
+    END IF;
+  END totalPages;
 
-        l_link_obj := NEW JSON_OBJECT_T();
-        l_link_obj.put('rel','first');
-        l_link_obj.put('href', update_url_with_pagination(p_path, 0, p_limit));
-        l_links_array.append(l_link_obj);
-
-        IF p_offset > 0 THEN
-            l_link_obj := NEW JSON_OBJECT_T();
-            l_link_obj.put('rel','previous');
-            l_link_obj.put('href', update_url_with_pagination(p_path, GREATEST(p_offset - p_limit, 0), p_limit));
-            l_links_array.append(l_link_obj);
-        END IF;
-
-        IF has_next_page(p_offset, p_limit, p_total) THEN
-            l_link_obj := NEW JSON_OBJECT_T();
-            l_link_obj.put('rel','next');
-            l_link_obj.put('href', update_url_with_pagination(p_path, p_offset + p_limit, p_limit));
-            l_links_array.append(l_link_obj);
-        END IF;
-
-        IF p_total > p_limit THEN
-            l_link_obj := NEW JSON_OBJECT_T();
-            l_link_obj.put('rel','last');
-            l_link_obj.put('href', update_url_with_pagination(
-                p_path,
-                (TRUNC((p_total - 1) / p_limit) * p_limit),
-                p_limit
-            ));
-            l_links_array.append(l_link_obj);
-        END IF;
-
-        RETURN l_links_array;
-    END build_pagination_links;
-
-    /**
-     * Paginates JSON data from a CLOB and returns structured JSON with metadata.
-     *
-     * @param p_json_clob CLOB containing JSON array data.
-     * @param p_path      Base path or URL for pagination (default '/api/v1/data').
-     * @return Paginated JSON object as a CLOB.
-     *
-     * @raises PAGINATION_NULL if input JSON is null.
-     * @raises PAGINATION_INVALID_JSON if parsing fails.
-     */
-
-function GET_PAGINATED_dATA_FROM_CLOB (
-
-
-P_JSON_CLOB IN CLOB,
-P_OATH IN VARCHAR2 DEFAULT '/API/V1/DATA/'
-)RETURN CLOB IS 
-
-I_JSON_OBJ JSON_OBJECT_T := NEW JSON_OBJECT_T();
-I_DATA_ARRAY JSON_ARRAY_T;
-I_SLICE_ARRAY JSON_ARRAY_T := NEW JSON_ARRAY_T();
-I_PAGINATION_OBJ JSON_OBJECT_T := NEW JSON_OBJECT_T();
-I_TOTAL_COUNT NUMBER;
-I_END_INDX NUMBER;
-I_OFFSET NUMBER;
-I_LIMIT NUMBER;
-I_STATUS_cODE NUMBER;
+-----------------------
+function has_next_page (
+  p_offset in pls_integer,
+  p_limit in pls_integer,
+  p_total in pls_integer
+)RETURN BOOLEAN IS 
 BEGIN 
-  EXTRACT_OFFSET_LIMIT_FROM_URL(p_path,i_offset,i_limit);
-  validate_offset(i_offset);
-  validate_limit(i_limit);
-  
-  if p_json_clob is null then 
-    error_handeling_pkg_3.raise_Error('PAGINATION_NULL');
- END IF;
- 
- BEGIN 
- 
-    i_data_array := JSON_ARRAY_T.PARSE(P_JSON_CLOB);
-EXCEPTION 
-   WHEN OTHERS THEN 
-      error_handeling_pkg_3.raise_Error('PAGINATION_INVALID_JSON');
-END;
+   IF P_TOTAL > (P_OFFSET+P_LIMIT) THEN 
+      RETURN TRUE;
+   ELSE
+      RETURN FALSE;
+   END IF;
+END HAS_NEXT_PAGE;
+---------------------------------------
+--Remove last element from json array
+--------------------------------------------------
+peocedure remove_last_elemnt(p_data in out nocopy JSON_ARRAY_T)
+begin 
+  if p_data.get_size()>0 then 
+    p_data.remove(p_data.get_Size()-1);
+  end if;
+end remove_last_elemnt;
 
-IF I_data_array is null then 
- error_handeling_pkg_3.raise_Error('pagination_invalid_json');
- end if;
- 
- i_total_count := count_items(i_data_array);
- 
- ---return empty structure if n o data
- 
-if i_total_Count = 0 then 
- 
-IF l_total_count = 0 THEN
-            l_json_obj.put('status','success');
-            l_json_obj.put('data', NEW JSON_ARRAY_T());
-            l_pagination_obj.put('limit', l_limit);
-            l_pagination_obj.put('offset', l_offset);
-            l_pagination_obj.put('count', 0);
-            l_pagination_obj.put('hasMore', FALSE);
-            l_pagination_obj.put('total', 0);
-            l_pagination_obj.put('links', NEW JSON_ARRAY_T());
-            l_json_obj.put('pagination', l_pagination_obj);
-            RETURN l_json_obj.to_clob();
-END IF;
+-------------------------------------------------------
+---Total count
+-------------------------------------------------
+FUNCTION total_count (p_data in json_array_t) return pls_integer is 
+begin  
+  return fncount(p_data);
+end total_count;
+-------------------------------------
+---Build invalid link JSON object
+----------------------------------------------
+FUNCTION link(p_uri in varchar2,p_page in pls_integer,p_Rel in varchar2) return json_object_t is 
+  i_json_obj JSON_OBJECT_T :=JSON_OBJECT_T();
+  I_URL VARCHAR2(32767);
+BEGIN 
+  i_uri := REGEXP_REPLACE(p_uri ,'page=[[:digit:]]+','page='||p_page);
+  i_json_obj.put('rel',p_rel);
+  i_json_obj.put('href',i_uri);
+  return i_json_obj;
+end link;
+----------------------------------------------------------------
+--build pagination link array
+-----------------------------------------------------------------------
+FUNCTION build_pagination_links(
+   p_path IN varchar2,
+   p_offset in number,
+   p_limit in number,
+   p_total in number
+)return json_array_t is 
+  i_json_arr JSON_ARRAY_T := JSON_ARRAY_T();
+  I_PAGE     NUMBER := FLOOR(P_OFFSET/P_LIMIT)+1;
+  i_total_pages number := CEIL(P_TOTAL/P_LIMIT);
+  i_has_more BOOLEAN := has_next_page(P_OFFSET +P_LIMIT,P_TOTAL);
+begin 
+  i_json_arr.append(link(p_path,I_page,'self'));
+    if  i_page> 1 then 
+    i_json_arr.append(link(p_path,1,'first'));
+    end if;
+    IF l_has_more THEN
+      l_json_arr.append(link(p_path, l_page + 1, 'next'));
+    END IF;
 
----
+    IF l_page > 1 THEN
+      l_json_arr.append(link(p_path, l_page - 1, 'prev'));
+    END IF;
 
-i_end_index := LEAST(i_offset+i_limit+1,i_total_count);
-for i in i_offset+1 .. i_end_index LOOP  
-  
-   i_slice_array.append(i_data_array.get(i-1));
- end loop;
- 
- --remove extra element if over limit 
- 
- if i_slice_array.get_size > i_limit then 
-    remove_last_elemnt(i_slice_array);
-end if;
+    IF l_page != l_total_pages THEN
+      l_json_arr.append(link(p_path, l_total_pages, 'last'));
+    END IF;
 
+    RETURN l_json_arr;
+END build_pagination_links;
 
---build json:
-i_json_obj.put('status','success');
-l_json_obj.put('data', l_slice_array);
-l_pagination_obj.put('limit', l_limit);
-l_pagination_obj.put('offset', l_offset);
-l_pagination_obj.put('count', l_slice_array.get_size);
-l_pagination_obj.put('hasMore', has_next_page(l_offset, l_limit, l_total_count));
-l_pagination_obj.put('total', l_total_count);
-l_pagination_obj.put('links', build_pagination_links(p_path, l_offset, l_limit, l_total_count));
-l_json_obj.put('pagination', l_pagination_obj);
-   
-return i_json_obj.to_clob();
+-------------------------------------------------------------
+-- Main pagination procedure
+  ---------------------------------------------------------------------------
+  PROCEDURE run(
+      p_data        IN CLOB,
+      p_total_count IN NUMBER DEFAULT NULL
+  ) IS
+    l_json_arr JSON_ARRAY_T;
+    l_total    PLS_INTEGER;
+    l_has_more BOOLEAN;
+    l_path     VARCHAR2(32767);
+    l_offset   VARCHAR2(10);
+    l_limit    VARCHAR2(10);
+    l_offset_num NUMBER;
+    l_limit_num  NUMBER;
+  BEGIN
+    -- Parse JSON CLOB to JSON_ARRAY_T
+    l_json_arr := JSON_ARRAY_T.parse(p_data);
 
-exception 
+    -- Read offset and limit directly from query params as VARCHAR2
+    l_offset := TO_CHAR(api_util_pkg.get_number_param('offset', DEFAULT_OFFSET));
+    l_limit  := TO_CHAR(api_util_pkg.get_number_param('limit', DEFAULT_LIMIT));
+
+    -- Validate offset and limit
+    validate_offset(l_offset);
+    validate_limit(l_limit);
+
+    l_offset_num := TO_NUMBER(l_offset);
+    l_limit_num  := TO_NUMBER(l_limit);
+
+    -- Calculate total items
+    IF p_total_count IS NOT NULL THEN
+      l_total := p_total_count;
+    ELSE
+      l_total := fnCount(l_json_arr);
+    END IF;
+
+    -- Check for next page
+    l_has_more := has_next_page(l_offset_num + l_limit_num, l_total);
+
+    -- Build base path for links
+    l_path := api_util_pkg.get_uri_base_path() || api_util_pkg.get_uri_path();
+
+    -- Remove last element if more pages exist
+    IF l_has_more THEN
+      remove_last_element(l_json_arr);
+    END IF;
+
+    -- Build pagination links
+    l_json_arr := build_pagination_links(
+        p_path   => l_path,
+        p_offset => l_offset_num,
+        p_limit  => l_limit_num,
+        p_total  => l_total
+    );
+
+    -- Output result
+    DBMS_OUTPUT.PUT_LINE(l_json_arr.to_clob);
+
+  EXCEPTION
     WHEN OTHERS THEN
-            DECLARE
-                l_err_code VARCHAR2(4000);
-            BEGIN
-                IF SQLERRM LIKE '%PAGINATION_%' THEN
-                    l_err_code := REGEXP_SUBSTR(SQLERRM, 'PAGINATION_\w+');
-                ELSE
-                    l_err_code := 'INTERNAL_SERVER_ERROR';
-                END IF;
+      error_handling_pkg_3.raise_error('ERR_PAGINATION_RUN');
+  END run;
 
-                error_handling_pkg_3.handle_error(
-                    p_error_code  => l_err_code,
-                    p_path        => p_path,
-                    p_status_code => l_status_code
-                );
+END pagination_pkg_opt_new_version;
+/
 
-                RETURN error_handling_pkg_3.generate_error_json(l_err_code, p_path);
-	 END;
- END get_paginated_data_from_clob;
 
-end pagination_pkg_opt_new_version;
- 
 
- 
+
+
+
+
+
+
