@@ -1,0 +1,31 @@
+Create or replace package pkg_assert_spec as 
+ 
+/*
+ *public Types 
+ */
+
+SUBTYPE number_list is SYS.ODCINUMBERLIST;
+SUBTYPE Varchar2_list IS SYS.ODCINUMBERLIST;
+SUBTYPE date_list IS SYS.ODCINUMBERLIST;
+TYPE timestamp_list IS TABLE OF TIMESTAMP;
+TYPE timestamp_tz_list IS TABLE OF TIMESTAMP WITH TIME ZONE;
+
+/*
+ *PUBLIC FUNCTIONS /Procedures
+ */
+
+/*
+ *Boolean Conditions
+ */
+
+/*
+ *Assert that a condition is TRUE
+ */
+
+ PROCEDURE IS_TRUE (
+    P_CONDITION IN BOOLEAN,
+    P_RAISE IN BOOLEAN := TRUE,
+    P_ERR_CODE IN VARCHAR2
+ );
+
+ 
