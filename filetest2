@@ -1,0 +1,12 @@
+create or replace procedure test_employee(
+    p_id number,
+    p_name varchar2,
+    p_salary number 
+)is 
+
+begin 
+dbms_output.put_line('Employee id :'|| p_id);
+dbms_output.put_line ('Employee_name' || p_name);
+dbms_output.put_line ('Salary:'|| p_salary);
+end;
+/

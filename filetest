@@ -1,0 +1,13 @@
+create or replace procedure test_person(
+  id number ,
+  p_name varchar2 ,
+  family varchar2 
+
+)is 
+
+begin 
+
+dbms_output.put_line("testi :" || id || '-' || p_name || '-' || family)
+
+
+end ;
