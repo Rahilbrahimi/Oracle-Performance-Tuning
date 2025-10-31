@@ -28,4 +28,18 @@ TYPE timestamp_tz_list IS TABLE OF TIMESTAMP WITH TIME ZONE;
     P_ERR_CODE IN VARCHAR2
  );
 
+ /*
+  *Equality & Inquality
+  */
+
+/*
+ *Assert that two numbers are equal
+ */
+ procedure equals (
+    p_actual in number,
+    p_expected in number ,
+    p_raise in boolean := TRUE,
+    P_ERR_CODE IN VARCHAR2
+ );
+
  
