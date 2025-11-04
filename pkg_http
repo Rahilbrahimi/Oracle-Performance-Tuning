@@ -1,0 +1,24 @@
+CREATE OR REPLACE PACKAGE PKG_HTTP AS 
+/**
+ *public types
+ */
+
+
+/**
+ *HTTP HEADER
+ */
+
+SUBTYPE t_http_header_name is varchar2(100);
+SUBTYPE t_HTT_HEADER_VALUE IS VARCHAR2 (100);
+
+TYPE r_http_header is record (
+    http_header_name t_http_header_name,
+    http_header_value t_http_header_value
+);
+TYPE t_http_header is table of r_http_header;
+
+/**
+ *QUERY STRING
+ */
+ SUBTYPE t_http_query_param_name is varchar2(100);
+ SUBTYPE 
